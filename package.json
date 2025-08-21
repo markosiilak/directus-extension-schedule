@@ -28,7 +28,8 @@
     "link": "directus-extension link"
   },
   "dependencies": {
-    "v-calendar": "v2-latest"
+    "primevue": "^3.0.0",
+    "primeicons": "^6.0.0"
   },
   "repository": {
     "type": "git",

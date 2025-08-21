@@ -8,41 +8,71 @@
             :value="startDateDisplay"
             :disabled="disabled"
             :required="required"
-            type="text"
+            :type="showTime ? 'datetime-local' : 'date'"
             :placeholder="showTime ? 'Select start date and time' : 'Select start date'"
-            readonly
             class="date-input"
-            @click="showStartCalendar = true" />
+            @input="onStartDateInput" />
           <button 
             type="button" 
             :disabled="disabled"
             class="calendar-button"
-            @click="showStartCalendar = true">
+            @click="openCalendar">
             📅
           </button>
         </div>
         
-        <!-- Start Date Calendar Popup -->
-        <div v-if="showStartCalendar" class="calendar-popup">
+        <!-- Shared Calendar Popup -->
+        <div v-if="showCalendar" class="calendar-popup">
           <div class="calendar-header">
-            <span>Select Start Date</span>
-            <button class="close-button" @click="showStartCalendar = false">×</button>
+            <span>Select Date Range</span>
+            <button class="close-button" @click="showCalendar = false">×</button>
           </div>
-          <v-calendar
-            :attributes="startDateAttributes"
-            :min-date="null"
-            :max-date="endDateValue ? new Date(endDateValue) : null"
-            :from-page="{ month: new Date().getMonth() + 1, year: new Date().getFullYear() }"
-            :is-expanded="true"
-            :show-adjacent-months="false"
-            class="calendar"
-            @dayclick="onStartDateSelect" />
-          <div v-if="showTime" class="time-input">
-            <label>Time:</label>
-            <input 
-              v-model="startTimeValue" 
-              type="time"
-              @change="updateStartDateTime" />
+          <div class="calendar-grid">
+            <div class="calendar-nav">
+              <button @click="previousMonth()">&lt;</button>
+              <span>{{ currentMonthYear }}</span>
+              <button @click="nextMonth()">&gt;</button>
+            </div>
+            <div class="calendar-days">
+              <div class="calendar-day-header">
+                <span v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day">{{ day }}</span>
+              </div>
+              <div class="calendar-day-grid">
+                <div 
+                  v-for="(day, index) in calendarDays" 
+                  :key="`${day.dayNumber}-${day.otherMonth ? 'other' : 'current'}-${index}`"
+                  :class="['calendar-day', { 
+                    'other-month': day.otherMonth,
+                    'start-date': day.isStartDate,
+                    'end-date': day.isEndDate,
+                    'in-range': day.inRange,
+                    'disabled': day.disabled
+                  }]"
+                  @click="selectDate(day)">
+                  {{ day.dayNumber }}
+                </div>
+              </div>
+            </div>
+            <div v-if="showTime" class="time-inputs">
+              <div class="time-input">
+                <label>Start Time:</label>
+                <input 
+                  v-model="startTimeValue" 
+                  type="time"
+                  @change="updateStartDateTime" />
+              </div>
+              <div class="time-input">
+                <label>End Time:</label>
+                <input 
+                  v-model="endTimeValue" 
+                  type="time"
+                  @change="updateEndDateTime" />
+              </div>
+            </div>
+            <div class="calendar-actions">
+              <button @click="clearDates" class="clear-button">Clear</button>
+              <button @click="applyDates" class="apply-button">Apply</button>
+            </div>
           </div>
         </div>
       </div>
@@ -54,43 +84,12 @@
             :value="endDateDisplay"
             :disabled="disabled"
             :required="required"
-            type="text"
+            :type="showTime ? 'datetime-local' : 'date'"
             :placeholder="showTime ? 'Select end date and time' : 'Select end date'"
-            readonly
             class="date-input"
-            @click="showEndCalendar = true" />
-          <button 
-            type="button" 
-            :disabled="disabled"
-            class="calendar-button"
-            @click="showEndCalendar = true">
-            📅
-          </button>
+            @input="onEndDateInput" />
         </div>
         
-        <!-- End Date Calendar Popup -->
-        <div v-if="showEndCalendar" class="calendar-popup">
-          <div class="calendar-header">
-            <span>Select End Date</span>
-            <button class="close-button" @click="showEndCalendar = false">×</button>
-          </div>
-          <v-calendar
-            :attributes="endDateAttributes"
-            :min-date="startDateValue ? new Date(startDateValue) : null"
-            :max-date="null"
-            :from-page="{ month: new Date().getMonth() + 1, year: new Date().getFullYear() }"
-            :is-expanded="true"
-            :show-adjacent-months="false"
-            class="calendar"
-            @dayclick="onEndDateSelect" />
-          <div v-if="showTime" class="time-input">
-            <label>Time:</label>
-            <input 
-              v-model="endTimeValue" 
-              type="time"
-              @change="updateEndDateTime" />
-          </div>
-        </div>
       </div>
       
       <v-notice v-if="validationError" type="danger" class="validation-error">
@@ -115,6 +114,16 @@ interface Props {
   collection?: string;
 }
 
+interface CalendarDay {
+  date: Date;
+  dayNumber: number;
+  otherMonth: boolean;
+  isStartDate: boolean;
+  isEndDate: boolean;
+  inRange: boolean;
+  disabled: boolean;
+}
+
 const props = withDefaults(defineProps<Props>(), {
   startDateField: 'start_date',
   endDateField: 'end_date',
@@ -128,10 +137,13 @@ const emit = defineEmits(['input']);
 const api = useApi();
 
 // Calendar state
-const showStartCalendar = ref(false);
-const showEndCalendar = ref(false);
+const showCalendar = ref(false);
 const startTimeValue = ref('');
 const endTimeValue = ref('');
+const currentMonth = ref(new Date().getMonth());
+const currentYear = ref(new Date().getFullYear());
+const tempStartDate = ref<Date | null>(null);
+const tempEndDate = ref<Date | null>(null);
 
 // Extract start and end date values from the main value
 const startDateValue = computed(() => {
@@ -150,11 +162,18 @@ const startDateDisplay = computed(() => {
   const date = new Date(startDateValue.value);
   if (isNaN(date.getTime())) return '';
   
-  const formattedDate = date.toLocaleDateString();
-  if (props.showTime && startTimeValue.value) {
-    return `${formattedDate} ${startTimeValue.value}`;
+  // Format for datetime-local input: yyyy-MM-ddThh:mm
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  if (props.showTime) {
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } else {
+    return `${year}-${month}-${day}`;
   }
-  return formattedDate;
 });
 
 const endDateDisplay = computed(() => {
@@ -162,29 +181,30 @@ const endDateDisplay = computed(() => {
   const date = new Date(endDateValue.value);
   if (isNaN(date.getTime())) return '';
   
-  const formattedDate = date.toLocaleDateString();
-  if (props.showTime && endTimeValue.value) {
-    return `${formattedDate} ${endTimeValue.value}`;
+  // Format for datetime-local input: yyyy-MM-ddThh:mm
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  if (props.showTime) {
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } else {
+    return `${year}-${month}-${day}`;
   }
-  return formattedDate;
 });
 
-// Calendar attributes for highlighting
-const startDateAttributes = computed(() => [
-  {
-    key: 'start-date',
-    highlight: { color: 'blue', fillMode: 'light' },
-    dates: startDateValue.value ? new Date(startDateValue.value) : null
-  }
-]);
+// Calendar computed properties
+const currentMonthYear = computed(() => {
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${monthNames[currentMonth.value]} ${currentYear.value}`;
+});
 
-const endDateAttributes = computed(() => [
-  {
-    key: 'end-date',
-    highlight: { color: 'red', fillMode: 'light' },
-    dates: endDateValue.value ? new Date(endDateValue.value) : null
-  }
-]);
+const calendarDays = computed(() => {
+  return generateCalendarDays(currentMonth.value, currentYear.value, tempStartDate.value, tempEndDate.value);
+});
 
 // Labels for the fields
 const startDateLabel = computed(() => {
@@ -218,35 +238,114 @@ const updateValue = (field: string, value: any) => {
 };
 
 // Calendar event handlers
-const onStartDateSelect = (day: any) => {
-  // v-calendar v2 passes the date directly
-  const selectedDate = new Date(day);
-  if (props.showTime && startTimeValue.value) {
-    const [hours, minutes] = startTimeValue.value.split(':');
-    selectedDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-  } else {
-    selectedDate.setHours(0, 0, 0, 0);
-  }
-  
-  updateValue(props.startDateField!, selectedDate.toISOString());
-  showStartCalendar.value = false;
+const onStartDateSelect = (date: Date) => {
+  updateValue(props.startDateField!, date.toISOString());
   validateDates();
 };
 
-const onEndDateSelect = (day: any) => {
-  // v-calendar v2 passes the date directly
-  const selectedDate = new Date(day);
-  if (props.showTime && endTimeValue.value) {
-    const [hours, minutes] = endTimeValue.value.split(':');
-    selectedDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-  } else {
-    selectedDate.setHours(0, 0, 0, 0);
-  }
-  
-  updateValue(props.endDateField!, selectedDate.toISOString());
-  showEndCalendar.value = false;
+const onEndDateSelect = (date: Date) => {
+  updateValue(props.endDateField!, date.toISOString());
   validateDates();
 };
+
+// Calendar methods
+const onStartDateInput = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.value) {
+    const date = new Date(target.value);
+    updateValue(props.startDateField!, date.toISOString());
+    validateDates();
+  }
+};
+
+const onEndDateInput = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.value) {
+    const date = new Date(target.value);
+    updateValue(props.endDateField!, date.toISOString());
+    validateDates();
+  }
+};
+
+// Calendar methods for single calendar approach
+const openCalendar = () => {
+  tempStartDate.value = startDateValue.value ? new Date(startDateValue.value) : null;
+  tempEndDate.value = endDateValue.value ? new Date(endDateValue.value) : null;
+  showCalendar.value = true;
+};
+
+const selectDate = (day: CalendarDay) => {
+  if (day.disabled || day.otherMonth) return;
+  
+  const selectedDate = new Date(day.date);
+  
+  if (!tempStartDate.value || (tempStartDate.value && tempEndDate.value)) {
+    // First selection or reset selection
+    tempStartDate.value = selectedDate;
+    tempEndDate.value = null;
+  } else {
+    // Second selection - check if it's after start date
+    if (selectedDate > tempStartDate.value!) {
+      tempEndDate.value = selectedDate;
+    } else {
+      // If selected date is before start date, swap them
+      tempEndDate.value = tempStartDate.value;
+      tempStartDate.value = selectedDate;
+    }
+  }
+};
+
+const clearDates = () => {
+  tempStartDate.value = null;
+  tempEndDate.value = null;
+};
+
+const applyDates = () => {
+  if (tempStartDate.value) {
+    let startDate = new Date(tempStartDate.value);
+    let endDate = tempEndDate.value ? new Date(tempEndDate.value) : null;
+    
+    if (props.showTime) {
+      if (startTimeValue.value) {
+        const [hours, minutes] = startTimeValue.value.split(':');
+        startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      }
+      if (endDate && endTimeValue.value) {
+        const [hours, minutes] = endTimeValue.value.split(':');
+        endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      }
+    }
+    
+    updateValue(props.startDateField!, startDate.toISOString());
+    if (endDate) {
+      updateValue(props.endDateField!, endDate.toISOString());
+    }
+    
+    validateDates();
+  }
+  
+  showCalendar.value = false;
+};
+
+const previousMonth = () => {
+  if (currentMonth.value === 0) {
+    currentMonth.value = 11;
+    currentYear.value--;
+  } else {
+    currentMonth.value--;
+  }
+};
+
+const nextMonth = () => {
+  if (currentMonth.value === 11) {
+    currentMonth.value = 0;
+    currentYear.value++;
+  } else {
+    currentMonth.value++;
+  }
+};
+
+
 
 const updateStartDateTime = () => {
   if (startDateValue.value && startTimeValue.value) {
@@ -266,6 +365,75 @@ const updateEndDateTime = () => {
     updateValue(props.endDateField!, date.toISOString());
     validateDates();
   }
+};
+
+// Calendar generation function
+const generateCalendarDays = (month: number, year: number, startDate: any, endDate: any): CalendarDay[] => {
+  const days: CalendarDay[] = [];
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDay = firstDay.getDay();
+  const totalDays = lastDay.getDate();
+  
+  // Previous month days
+  const prevMonth = new Date(year, month, 0);
+  const prevMonthDays = prevMonth.getDate();
+  for (let i = startDay - 1; i >= 0; i--) {
+    const day = prevMonthDays - i;
+    const date = new Date(year, month - 1, day);
+    const isStart = startDate && date.toDateString() === new Date(startDate).toDateString();
+    const isEnd = endDate && date.toDateString() === new Date(endDate).toDateString();
+    const inRange = startDate && endDate && date > new Date(startDate) && date < new Date(endDate);
+    
+    days.push({
+      date: date,
+      dayNumber: day,
+      otherMonth: true,
+      isStartDate: isStart,
+      isEndDate: isEnd,
+      inRange: inRange,
+      disabled: false
+    });
+  }
+  
+  // Current month days
+  for (let day = 1; day <= totalDays; day++) {
+    const date = new Date(year, month, day);
+    const isStart = startDate && date.toDateString() === new Date(startDate).toDateString();
+    const isEnd = endDate && date.toDateString() === new Date(endDate).toDateString();
+    const inRange = startDate && endDate && date > new Date(startDate) && date < new Date(endDate);
+    
+    days.push({
+      date: date,
+      dayNumber: day,
+      otherMonth: false,
+      isStartDate: isStart,
+      isEndDate: isEnd,
+      inRange: inRange,
+      disabled: false
+    });
+  }
+  
+  // Next month days
+  const remainingDays = 42 - days.length; // 6 rows * 7 days
+  for (let day = 1; day <= remainingDays; day++) {
+    const date = new Date(year, month + 1, day);
+    const isStart = startDate && date.toDateString() === new Date(startDate).toDateString();
+    const isEnd = endDate && date.toDateString() === new Date(endDate).toDateString();
+    const inRange = startDate && endDate && date > new Date(startDate) && date < new Date(endDate);
+    
+    days.push({
+      date: date,
+      dayNumber: day,
+      otherMonth: true,
+      isStartDate: isStart,
+      isEndDate: isEnd,
+      inRange: inRange,
+      disabled: false
+    });
+  }
+  
+  return days;
 };
 
 // Validation logic
@@ -329,6 +497,10 @@ validateDates();
   font-size: 14px;
 }
 
+.date-picker {
+  width: 100%;
+}
+
 .date-input-wrapper {
   display: flex;
   align-items: center;
@@ -342,13 +514,7 @@ validateDates();
   border-radius: 4px;
   background: var(--theme--background-normal);
   color: var(--theme--foreground);
-  cursor: pointer;
   font-size: 14px;
-}
-
-.date-input:focus {
-  outline: none;
-  border-color: var(--theme--primary);
 }
 
 .calendar-button {
@@ -406,14 +572,98 @@ validateDates();
   color: var(--theme--foreground);
 }
 
-.calendar {
+.calendar-grid {
   margin-bottom: 16px;
+}
+
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.calendar-nav button {
+  background: var(--theme--background-accent);
+  border: 1px solid var(--theme--border-normal);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.calendar-nav button:hover {
+  background: var(--theme--background-accent-hover);
+}
+
+.calendar-days {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendar-day-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--theme--foreground-subdued);
+}
+
+.calendar-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.calendar-day:hover:not(.disabled) {
+  background: var(--theme--background-accent);
+}
+
+.calendar-day.other-month {
+  color: var(--theme--foreground-subdued);
+}
+
+.calendar-day.start-date {
+  background: var(--theme--primary);
+  color: white;
+  border-radius: 4px 0 0 4px;
+}
+
+.calendar-day.end-date {
+  background: var(--theme--primary);
+  color: white;
+  border-radius: 0 4px 4px 0;
+}
+
+.calendar-day.in-range {
+  background: var(--theme--primary-subdued);
+  color: var(--theme--primary);
+}
+
+.calendar-day.disabled {
+  color: var(--theme--foreground-subdued);
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .time-input {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 16px;
 }
 
 .time-input label {
@@ -429,6 +679,48 @@ validateDates();
   background: var(--theme--background-normal);
   color: var(--theme--foreground);
   font-size: 14px;
+}
+
+.time-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.calendar-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+.clear-button, .apply-button {
+  padding: 8px 16px;
+  border: 1px solid var(--theme--border-normal);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.clear-button {
+  background: var(--theme--background-normal);
+  color: var(--theme--foreground);
+}
+
+.clear-button:hover {
+  background: var(--theme--background-accent);
+}
+
+.apply-button {
+  background: var(--theme--primary);
+  color: white;
+  border-color: var(--theme--primary);
+}
+
+.apply-button:hover {
+  background: var(--theme--primary-hover);
 }
 
 .validation-error {
