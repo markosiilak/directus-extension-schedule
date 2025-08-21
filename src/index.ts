@@ -23,6 +23,9 @@ export default defineInterface({
         },
         note: "Field name for the start date",
       },
+      schema: {
+        default_value: "start_date",
+      },
     },
     {
       field: "endDateField",
@@ -35,6 +38,9 @@ export default defineInterface({
           placeholder: "end_date",
         },
         note: "Field name for the end date",
+      },
+      schema: {
+        default_value: "end_date",
       },
     },
     {
