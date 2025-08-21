@@ -1,0 +1,43 @@
+{
+  "name": "@directus-extension/schedule",
+  "description": "Schedule interface with start and end date fields",
+  "icon": "schedule",
+  "version": "1.0.2",
+  "keywords": [
+    "directus",
+    "directus-extension",
+    "directus-extension-interface",
+    "schedule",
+    "date",
+    "time",
+    "validation"
+  ],
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "directus:extension": {
+    "type": "interface",
+    "path": "dist/index.cjs",
+    "source": "src/index.ts",
+    "host": "^11.0.0"
+  },
+  "scripts": {
+    "build": "directus-extension build",
+    "dev": "directus-extension build -w --no-minify",
+    "link": "directus-extension link"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/directus-extension-schedule.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/directus-extension-schedule/issues"
+  },
+  "homepage": "https://github.com/your-username/directus-extension-schedule#readme",
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
