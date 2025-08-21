@@ -2,16 +2,16 @@
   <div class="schedule-interface">
     <div class="schedule-fields">
       <div class="schedule-field">
-        <label class="schedule-label">{{ startDateLabel }}</label>
+        <label class="schedule-label">Date Range</label>
         <div class="date-input-wrapper">
           <input
-            :value="startDateDisplay"
+            :value="dateRangeDisplay"
             :disabled="disabled"
             :required="required"
-            :type="showTime ? 'datetime-local' : 'date'"
-            :placeholder="showTime ? 'Select start date and time' : 'Select start date'"
+            type="text"
+            :placeholder="showTime ? 'Select date range and time' : 'Select date range'"
             class="date-input"
-            @input="onStartDateInput" />
+            readonly />
           <button 
             type="button" 
             :disabled="disabled"
@@ -40,7 +40,7 @@
               <div class="calendar-day-grid">
                 <div 
                   v-for="(day, index) in calendarDays" 
-                  :key="`${day.dayNumber}-${day.otherMonth ? 'other' : 'current'}-${index}`"
+                  :key="`${day.dayNumber}-${day.otherMonth ? 'other' : 'current'}: 'current'}-${index}`"
                   :class="['calendar-day', { 
                     'other-month': day.otherMonth,
                     'start-date': day.isStartDate,
@@ -77,21 +77,6 @@
         </div>
       </div>
       
-      <div class="schedule-field">
-        <label class="schedule-label">{{ endDateLabel }}</label>
-        <div class="date-input-wrapper">
-          <input
-            :value="endDateDisplay"
-            :disabled="disabled"
-            :required="required"
-            :type="showTime ? 'datetime-local' : 'date'"
-            :placeholder="showTime ? 'Select end date and time' : 'Select end date'"
-            class="date-input"
-            @input="onEndDateInput" />
-        </div>
-        
-      </div>
-      
       <v-notice v-if="validationError" type="danger" class="validation-error">
         {{ validationError }}
       </v-notice>
@@ -112,6 +97,7 @@ interface Props {
   required?: boolean;
   validation?: string;
   collection?: string;
+  displayFormat?: string;
 }
 
 interface CalendarDay {
@@ -129,7 +115,8 @@ const props = withDefaults(defineProps<Props>(), {
   endDateField: 'end_date',
   showTime: false,
   required: false,
-  validation: 'end_after_start'
+  validation: 'end_after_start',
+  displayFormat: 'numeric'
 });
 
 const emit = defineEmits(['input']);
@@ -156,44 +143,7 @@ const endDateValue = computed(() => {
   return props.value[props.endDateField] || null;
 });
 
-// Display values for the input fields
-const startDateDisplay = computed(() => {
-  if (!startDateValue.value) return '';
-  const date = new Date(startDateValue.value);
-  if (isNaN(date.getTime())) return '';
-  
-  // Format for datetime-local input: yyyy-MM-ddThh:mm
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  
-  if (props.showTime) {
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  } else {
-    return `${year}-${month}-${day}`;
-  }
-});
 
-const endDateDisplay = computed(() => {
-  if (!endDateValue.value) return '';
-  const date = new Date(endDateValue.value);
-  if (isNaN(date.getTime())) return '';
-  
-  // Format for datetime-local input: yyyy-MM-ddThh:mm
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  
-  if (props.showTime) {
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  } else {
-    return `${year}-${month}-${day}`;
-  }
-});
 
 // Calendar computed properties
 const currentMonthYear = computed(() => {
@@ -204,6 +154,78 @@ const currentMonthYear = computed(() => {
 
 const calendarDays = computed(() => {
   return generateCalendarDays(currentMonth.value, currentYear.value, tempStartDate.value, tempEndDate.value);
+});
+
+// Format date based on the displayFormat setting
+const formatDateDisplay = (dateValue: string | null): string => {
+  if (!dateValue) return '';
+  
+  const date = new Date(dateValue);
+  
+  switch (props.displayFormat) {
+    case 'short':
+      return date.toLocaleDateString(undefined, { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric'
+      });
+    case 'medium':
+      return date.toLocaleDateString(undefined, { 
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric'
+      });
+    case 'long':
+      return date.toLocaleDateString(undefined, { 
+        weekday: 'short',
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric'
+      });
+    case 'european':
+      // Format as dd.mm.yyyy
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    case 'iso':
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    case 'numeric':
+    default:
+      return date.toLocaleDateString(); // Default numeric format
+  }
+};
+
+// Combined date range display
+const dateRangeDisplay = computed(() => {
+  if (!startDateValue.value && !endDateValue.value) return '';
+  
+  let display = '';
+  
+  if (startDateValue.value) {
+    const startFormatted = formatDateDisplay(startDateValue.value);
+    display += startFormatted;
+    
+    if (props.showTime && startTimeValue.value) {
+      display += ` ${startTimeValue.value}`;
+    }
+  }
+  
+  if (endDateValue.value) {
+    if (display) display += ' - ';
+    
+    const endFormatted = formatDateDisplay(endDateValue.value);
+    display += endFormatted;
+    
+    if (props.showTime && endTimeValue.value) {
+      display += ` ${endTimeValue.value}`;
+    }
+  } else if (startDateValue.value) {
+    // Show placeholder for end date if only start date is selected
+    display += ' - (select end date)';
+  }
+  
+  return display;
 });
 
 // Labels for the fields
@@ -249,23 +271,7 @@ const onEndDateSelect = (date: Date) => {
 };
 
 // Calendar methods
-const onStartDateInput = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.value) {
-    const date = new Date(target.value);
-    updateValue(props.startDateField!, date.toISOString());
-    validateDates();
-  }
-};
 
-const onEndDateInput = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.value) {
-    const date = new Date(target.value);
-    updateValue(props.endDateField!, date.toISOString());
-    validateDates();
-  }
-};
 
 // Calendar methods for single calendar approach
 const openCalendar = () => {
@@ -316,9 +322,15 @@ const applyDates = () => {
       }
     }
     
+    // Always update start date
     updateValue(props.startDateField!, startDate.toISOString());
+    
+    // Update or clear end date
     if (endDate) {
       updateValue(props.endDateField!, endDate.toISOString());
+    } else {
+      // Clear end date if no end date is selected
+      updateValue(props.endDateField!, null);
     }
     
     validateDates();

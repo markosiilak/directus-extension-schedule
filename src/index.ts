@@ -8,7 +8,7 @@ export default defineInterface({
   icon: "schedule",
   description: "Schedule interface with start and end date fields",
   component: InterfaceComponent,
-  types: ["json", "alias"],
+  types: ["json"],
   group: "relational",
   options: [
     {
@@ -70,11 +70,35 @@ export default defineInterface({
       },
     },
     {
+      field: "displayFormat",
+      name: "Display Format",
+      type: "string",
+      meta: {
+        width: "half",
+        interface: "select-dropdown",
+        options: {
+          choices: [
+            { text: "Short (Jan 7, 2025)", value: "short" },
+            { text: "Medium (January 7, 2025)", value: "medium" },
+            { text: "Long (Mon, January 7, 2025)", value: "long" },
+            { text: "Numeric (04/08/2025)", value: "numeric" },
+            { text: "European (07.01.2025)", value: "european" },
+            { text: "ISO (2025-01-07)", value: "iso" },
+          ],
+          default: "numeric",
+        },
+        note: "Format for displaying dates in the input field",
+      },
+      schema: {
+        default_value: "numeric",
+      },
+    },
+    {
       field: "validation",
       name: "Validation",
       type: "string",
       meta: {
-        width: "full",
+        width: "half",
         interface: "select-dropdown",
         options: {
           choices: [
