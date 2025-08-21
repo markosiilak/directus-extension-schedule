@@ -29,13 +29,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/directus-extension-schedule.git"
+    "url": "git+https://github.com/markosiilak/directus-extension-schedule.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/directus-extension-schedule/issues"
+    "url": "https://github.com/markosiilak/directus-extension-schedule/issues"
   },
-  "homepage": "https://github.com/your-username/directus-extension-schedule#readme",
-  "author": "Your Name",
+  "homepage": "https://github.com/markosiilak/directus-extension-schedule#readme",
+  "author": "Marko Siilak",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
