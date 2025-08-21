@@ -29,10 +29,12 @@
             <button class="close-button" @click="showStartCalendar = false">×</button>
           </div>
           <v-calendar
-            v-model="startDateValue"
+            :attributes="startDateAttributes"
             :min-date="null"
             :max-date="endDateValue ? new Date(endDateValue) : null"
-            :attributes="startDateAttributes"
+            :from-page="{ month: new Date().getMonth() + 1, year: new Date().getFullYear() }"
+            :is-expanded="true"
+            :show-adjacent-months="false"
             class="calendar"
             @dayclick="onStartDateSelect" />
           <div v-if="showTime" class="time-input">
@@ -73,10 +75,12 @@
             <button class="close-button" @click="showEndCalendar = false">×</button>
           </div>
           <v-calendar
-            v-model="endDateValue"
+            :attributes="endDateAttributes"
             :min-date="startDateValue ? new Date(startDateValue) : null"
             :max-date="null"
-            :attributes="endDateAttributes"
+            :from-page="{ month: new Date().getMonth() + 1, year: new Date().getFullYear() }"
+            :is-expanded="true"
+            :show-adjacent-months="false"
             class="calendar"
             @dayclick="onEndDateSelect" />
           <div v-if="showTime" class="time-input">
@@ -215,7 +219,8 @@ const updateValue = (field: string, value: any) => {
 
 // Calendar event handlers
 const onStartDateSelect = (day: any) => {
-  const selectedDate = new Date(day.date);
+  // v-calendar v2 passes the date directly
+  const selectedDate = new Date(day);
   if (props.showTime && startTimeValue.value) {
     const [hours, minutes] = startTimeValue.value.split(':');
     selectedDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -229,7 +234,8 @@ const onStartDateSelect = (day: any) => {
 };
 
 const onEndDateSelect = (day: any) => {
-  const selectedDate = new Date(day.date);
+  // v-calendar v2 passes the date directly
+  const selectedDate = new Date(day);
   if (props.showTime && endTimeValue.value) {
     const [hours, minutes] = endTimeValue.value.split(':');
     selectedDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
