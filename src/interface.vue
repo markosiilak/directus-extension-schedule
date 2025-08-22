@@ -11,7 +11,8 @@
             type="text"
             :placeholder="showTime ? 'Select date range and time' : 'Select date range'"
             class="date-input"
-            readonly />
+            readonly
+            @click="openCalendar" />
           <button 
             type="button" 
             :disabled="disabled"
@@ -27,52 +28,81 @@
             <span>Select Date Range</span>
             <button class="close-button" @click="showCalendar = false">×</button>
           </div>
-          <div class="calendar-grid">
-            <div class="calendar-nav">
-              <button @click="previousMonth()">&lt;</button>
-              <span>{{ currentMonthYear }}</span>
-              <button @click="nextMonth()">&gt;</button>
-            </div>
-            <div class="calendar-days">
-              <div class="calendar-day-header">
-                <span v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day">{{ day }}</span>
+          
+          <!-- Tab Navigation -->
+          <div class="tab-navigation">
+            <button 
+              class="tab-button" 
+              :class="{ active: activeTab === 'calendar' }"
+              @click="activeTab = 'calendar'">
+              Calendar
+            </button>
+            <button 
+              v-if="showTime"
+              class="tab-button" 
+              :class="{ active: activeTab === 'time' }"
+              @click="activeTab = 'time'">
+              Time
+            </button>
+          </div>
+          
+          <!-- Calendar Tab Content -->
+          <div v-if="activeTab === 'calendar'" class="tab-content">
+            <div class="calendar-grid">
+              <div class="calendar-nav">
+                <button @click="previousMonth()">&lt;</button>
+                <span>{{ currentMonthYear }}</span>
+                <button @click="nextMonth()">&gt;</button>
               </div>
-              <div class="calendar-day-grid">
-                <div 
-                  v-for="(day, index) in calendarDays" 
-                  :key="`${day.dayNumber}-${day.otherMonth ? 'other' : 'current'}: 'current'}-${index}`"
-                  :class="['calendar-day', { 
-                    'other-month': day.otherMonth,
-                    'start-date': day.isStartDate,
-                    'end-date': day.isEndDate,
-                    'in-range': day.inRange,
-                    'disabled': day.disabled
-                  }]"
-                  @click="selectDate(day)">
-                  {{ day.dayNumber }}
+              <div class="calendar-days">
+                <div class="calendar-day-header">
+                  <span v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day">{{ day }}</span>
+                </div>
+                <div class="calendar-day-grid">
+                  <div 
+                    v-for="(day, index) in calendarDays" 
+                    :key="`${day.dayNumber}-${day.otherMonth ? 'other' : 'current'}: 'current'}-${index}`"
+                    class="calendar-day"
+                    :class="[{ 
+                      'other-month': day.otherMonth,
+                      'start-date': day.isStartDate,
+                      'end-date': day.isEndDate,
+                      'in-range': day.inRange,
+                      'disabled': day.disabled
+                    }]"
+                    @click="selectDate(day)">
+                    {{ day.dayNumber }}
+                  </div>
                 </div>
               </div>
             </div>
-            <div v-if="showTime" class="time-inputs">
+          </div>
+          
+          <!-- Time Tab Content -->
+          <div v-if="activeTab === 'time' && showTime" class="tab-content">
+            <div class="time-inputs">
               <div class="time-input">
                 <label>Start Time:</label>
                 <input 
-                  v-model="startTimeValue" 
-                  type="time"
+                  v-model="startTimeInput" 
+                  type="text"
+                  placeholder="HH:MM (e.g., 09:30)"
                   @change="updateStartDateTime" />
               </div>
               <div class="time-input">
                 <label>End Time:</label>
                 <input 
-                  v-model="endTimeValue" 
-                  type="time"
+                  v-model="endTimeInput" 
+                  type="text"
+                  placeholder="HH:MM (e.g., 17:00)"
                   @change="updateEndDateTime" />
               </div>
             </div>
-            <div class="calendar-actions">
-              <button @click="clearDates" class="clear-button">Clear</button>
-              <button @click="applyDates" class="apply-button">Apply</button>
-            </div>
+          </div>
+          
+          <div class="calendar-actions">
+            <button class="clear-button" @click="clearDates">Clear</button>
+            <button class="apply-button" @click="applyDates">Apply</button>
           </div>
         </div>
       </div>
@@ -125,8 +155,7 @@ const api = useApi();
 
 // Calendar state
 const showCalendar = ref(false);
-const startTimeValue = ref('');
-const endTimeValue = ref('');
+const activeTab = ref('calendar');
 const currentMonth = ref(new Date().getMonth());
 const currentYear = ref(new Date().getFullYear());
 const tempStartDate = ref<Date | null>(null);
@@ -143,7 +172,9 @@ const endDateValue = computed(() => {
   return props.value[props.endDateField] || null;
 });
 
-
+// Local time input values
+const startTimeInput = ref('');
+const endTimeInput = ref('');
 
 // Calendar computed properties
 const currentMonthYear = computed(() => {
@@ -206,8 +237,8 @@ const dateRangeDisplay = computed(() => {
     const startFormatted = formatDateDisplay(startDateValue.value);
     display += startFormatted;
     
-    if (props.showTime && startTimeValue.value) {
-      display += ` ${startTimeValue.value}`;
+    if (props.showTime && startTimeInput.value) {
+      display += ` ${startTimeInput.value}`;
     }
   }
   
@@ -217,8 +248,8 @@ const dateRangeDisplay = computed(() => {
     const endFormatted = formatDateDisplay(endDateValue.value);
     display += endFormatted;
     
-    if (props.showTime && endTimeValue.value) {
-      display += ` ${endTimeValue.value}`;
+    if (props.showTime && endTimeInput.value) {
+      display += ` ${endTimeInput.value}`;
     }
   } else if (startDateValue.value) {
     // Show placeholder for end date if only start date is selected
@@ -277,6 +308,25 @@ const onEndDateSelect = (date: Date) => {
 const openCalendar = () => {
   tempStartDate.value = startDateValue.value ? new Date(startDateValue.value) : null;
   tempEndDate.value = endDateValue.value ? new Date(endDateValue.value) : null;
+  activeTab.value = 'calendar';
+  
+  // Initialize time input values from stored dates
+  if (props.showTime) {
+    if (startDateValue.value) {
+      const startDate = new Date(startDateValue.value);
+      startTimeInput.value = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
+    } else {
+      startTimeInput.value = '';
+    }
+    
+    if (endDateValue.value) {
+      const endDate = new Date(endDateValue.value);
+      endTimeInput.value = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+    } else {
+      endTimeInput.value = '';
+    }
+  }
+  
   showCalendar.value = true;
 };
 
@@ -312,12 +362,12 @@ const applyDates = () => {
     let endDate = tempEndDate.value ? new Date(tempEndDate.value) : null;
     
     if (props.showTime) {
-      if (startTimeValue.value) {
-        const [hours, minutes] = startTimeValue.value.split(':');
+      if (startTimeInput.value) {
+        const [hours, minutes] = startTimeInput.value.split(':');
         startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       }
-      if (endDate && endTimeValue.value) {
-        const [hours, minutes] = endTimeValue.value.split(':');
+      if (endDate && endTimeInput.value) {
+        const [hours, minutes] = endTimeInput.value.split(':');
         endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       }
     }
@@ -360,22 +410,26 @@ const nextMonth = () => {
 
 
 const updateStartDateTime = () => {
-  if (startDateValue.value && startTimeValue.value) {
+  if (startDateValue.value && startTimeInput.value) {
     const date = new Date(startDateValue.value);
-    const [hours, minutes] = startTimeValue.value.split(':');
-    date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-    updateValue(props.startDateField!, date.toISOString());
-    validateDates();
+    const [hours, minutes] = startTimeInput.value.split(':');
+    if (hours && minutes) {
+      date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      updateValue(props.startDateField!, date.toISOString());
+      validateDates();
+    }
   }
 };
 
 const updateEndDateTime = () => {
-  if (endDateValue.value && endTimeValue.value) {
+  if (endDateValue.value && endTimeInput.value) {
     const date = new Date(endDateValue.value);
-    const [hours, minutes] = endTimeValue.value.split(':');
-    date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-    updateValue(props.endDateField!, date.toISOString());
-    validateDates();
+    const [hours, minutes] = endTimeInput.value.split(':');
+    if (hours && minutes) {
+      date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      updateValue(props.endDateField!, date.toISOString());
+      validateDates();
+    }
   }
 };
 
@@ -564,6 +618,38 @@ validateDates();
   margin-bottom: 16px;
   font-weight: 500;
   color: var(--theme--foreground);
+}
+
+.tab-navigation {
+  display: flex;
+  border-bottom: 1px solid var(--theme--border-normal);
+  margin-bottom: 16px;
+}
+
+.tab-button {
+  background: none;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--theme--foreground-subdued);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: var(--theme--foreground);
+  background: var(--theme--background-accent);
+}
+
+.tab-button.active {
+  color: var(--theme--primary);
+  border-bottom-color: var(--theme--primary);
+  background: var(--theme--background-accent);
+}
+
+.tab-content {
+  min-height: 200px;
 }
 
 .close-button {

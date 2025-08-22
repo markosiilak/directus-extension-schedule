@@ -27,10 +27,6 @@
     "dev": "directus-extension build -w --no-minify",
     "link": "directus-extension link"
   },
-  "dependencies": {
-    "primevue": "^3.0.0",
-    "primeicons": "^6.0.0"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/markosiilak/directus-extension-schedule.git"
