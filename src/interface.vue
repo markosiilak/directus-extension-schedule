@@ -237,8 +237,10 @@ const dateRangeDisplay = computed(() => {
     const startFormatted = formatDateDisplay(startDateValue.value);
     display += startFormatted;
     
-    if (props.showTime && startTimeInput.value) {
-      display += ` ${startTimeInput.value}`;
+    if (props.showTime) {
+      const startDate = new Date(startDateValue.value);
+      const startTime = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
+      display += ` ${startTime}`;
     }
   }
   
@@ -248,8 +250,10 @@ const dateRangeDisplay = computed(() => {
     const endFormatted = formatDateDisplay(endDateValue.value);
     display += endFormatted;
     
-    if (props.showTime && endTimeInput.value) {
-      display += ` ${endTimeInput.value}`;
+    if (props.showTime) {
+      const endDate = new Date(endDateValue.value);
+      const endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+      display += ` ${endTime}`;
     }
   } else if (startDateValue.value) {
     // Show placeholder for end date if only start date is selected
