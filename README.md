@@ -2,6 +2,13 @@
 
 A Directus extension that provides a schedule interface with start and end date fields, including validation and time options.
 
+## Preview
+
+![Schedule Interface Preview](preview.png)
+
+*The schedule interface showing date range selection with calendar popup and time options*
+
+
 ## Features
 
 - **Dual Date Fields**: Configure custom field names for start and end dates
