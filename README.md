@@ -1,6 +1,11 @@
 # Directus Schedule Interface Extension
 
+[![npm version](https://img.shields.io/npm/v/directus-extension-schedule.svg)](https://www.npmjs.com/package/directus-extension-schedule)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Directus extension that provides a schedule interface with start and end date fields, including validation and time options.
+
+**Current Version**: 1.0.3
 
 ## Preview
 
@@ -21,7 +26,7 @@ A Directus extension that provides a schedule interface with start and end date 
 
 ### From NPM (Recommended)
 ```bash
-npm install @your-org/directus-extension-schedule
+npm install directus-extension-schedule
 ```
 
 ### Manual Installation
@@ -89,6 +94,10 @@ MIT License - see LICENSE file for details.
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for a detailed list of changes and new features in each version.
 
 ## Support
 
