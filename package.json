@@ -1,5 +1,5 @@
 {
-  "name": "@siilak/directus-extension-schedule",
+  "name": "directus-extension-schedule",
   "description": "Schedule interface with start and end date fields",
   "icon": "schedule",
   "version": "1.0.2",
